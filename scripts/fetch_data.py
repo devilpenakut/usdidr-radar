@@ -335,34 +335,59 @@ def fetch_news():
         except Exception as e:
             log(f"  ⚠️ Tavily error: {e}")
 
-    # Opsi 2: NewsAPI fallback
+    # Opsi 2: NewsAPI (free tier: English only, no date filter)
     if NEWS_API_KEY:
-        try:
-            r = requests.get(
-                "https://newsapi.org/v2/everything",
-                params={
-                    "q": "rupiah IDR kurs dollar",
-                    "language": "id",
-                    "sortBy": "publishedAt",
-                    "pageSize": 5,
-                    "from": (TODAY - datetime.timedelta(days=1)).isoformat(),
-                    "apiKey": NEWS_API_KEY
-                },
-                timeout=10
-            )
-            articles = r.json().get("articles", [])
-            if articles:
-                results = [{
-                    "title": a.get("title","")[:120],
-                    "source": a.get("source",{}).get("name",""),
-                    "datetime": a.get("publishedAt","")[:16].replace("T"," "),
-                    "classification": classify_news(a.get("title","")),
-                    "label": "LIVE"
-                } for a in articles if a.get("title")]
-                log(f"  ✅ {len(results)} berita dari NewsAPI")
-                return results[:5]
-        except Exception as e:
-            log(f"  ⚠️ NewsAPI error: {e}")
+        newsapi_queries = [
+            ("Indonesian rupiah dollar exchange rate", "en"),
+            ("Bank Indonesia interest rate rupiah", "en"),
+            ("IDR USD currency Indonesia", "en"),
+        ]
+        newsapi_results = []
+        seen_newsapi = set()
+        for q, lang in newsapi_queries:
+            try:
+                r = requests.get(
+                    "https://newsapi.org/v2/everything",
+                    params={
+                        "q": q,
+                        "language": lang,
+                        "sortBy": "publishedAt",
+                        "pageSize": 5,
+                        "apiKey": NEWS_API_KEY
+                        # Note: 'from' param requires paid plan — dihapus
+                    },
+                    timeout=10
+                )
+                data = r.json()
+                if data.get("status") == "error":
+                    log(f"  ⚠️ NewsAPI error: {data.get('message','')}")
+                    break
+                for a in data.get("articles", []):
+                    title = a.get("title", "")
+                    if not title or title in seen_newsapi or len(title) < 15:
+                        continue
+                    if "[Removed]" in title:
+                        continue
+                    seen_newsapi.add(title)
+                    newsapi_results.append({
+                        "title": title[:120],
+                        "source": a.get("source", {}).get("name", "NewsAPI"),
+                        "datetime": a.get("publishedAt", "")[:16].replace("T", " "),
+                        "url": a.get("url", ""),
+                        "classification": classify_news(title),
+                        "label": "LIVE"
+                    })
+                if len(newsapi_results) >= 5:
+                    break
+            except Exception as e:
+                log(f"  ⚠️ NewsAPI query error: {e}")
+                continue
+
+        if newsapi_results:
+            log(f"  ✅ {len(newsapi_results)} berita dari NewsAPI")
+            return newsapi_results[:5]
+        else:
+            log("  ⚠️ NewsAPI: 0 artikel — mungkin rate limit atau plan gratis")
 
     # Opsi 3: Scraping fallback
     log("  ℹ️ Fallback ke scraping...")
