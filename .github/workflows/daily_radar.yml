@@ -54,7 +54,7 @@ jobs:
         if: steps.market_check.outputs.market_open == 'true'
         run: python scripts/generate_report.py
         env:
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATE_OVERRIDE: ${{ github.event.inputs.date_override }}
 
       - name: 📤 Deploy to GitHub Pages
