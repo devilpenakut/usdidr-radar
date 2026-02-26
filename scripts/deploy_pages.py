@@ -1,0 +1,111 @@
+"""
+deploy_pages.py
+Update docs/index.html dengan daftar semua report yang ada,
+agar GitHub Pages punya halaman navigasi.
+"""
+import os
+import glob
+import datetime
+
+DOCS_DIR = "docs"
+os.makedirs(DOCS_DIR, exist_ok=True)
+
+
+def main():
+    # Kumpulkan semua report yang ada
+    reports = sorted(
+        glob.glob(f"{DOCS_DIR}/PreMarket_Radar_USDIDR_*.html"),
+        reverse=True
+    )
+
+    report_links = ""
+    for r in reports:
+        fname = os.path.basename(r)
+        date_str = fname.replace("PreMarket_Radar_USDIDR_", "").replace(".html", "")
+        try:
+            d = datetime.date.fromisoformat(date_str)
+            label = d.strftime("%A, %d %B %Y")
+        except ValueError:
+            label = date_str
+
+        report_links += f"""
+        <a href="./{fname}" class="report-link">
+          <span class="date">{label}</span>
+          <span class="arrow">→</span>
+        </a>"""
+
+    latest = os.path.basename(reports[0]) if reports else "index.html"
+    now_wib = (datetime.datetime.utcnow() + datetime.timedelta(hours=7)).strftime("%d %b %Y %H:%M WIB")
+
+    index = f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USD/IDR Pre-Market Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {{
+      --bg: #080c10; --surface: #0d1318; --border: #1a2332;
+      --accent: #00e5ff; --text: #c8d8e8; --muted: #4a6070;
+    }}
+    * {{ margin:0; padding:0; box-sizing:border-box; }}
+    body {{
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Mono', monospace; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 40px 20px;
+    }}
+    h1 {{
+      font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
+      letter-spacing: 0.15em; color: #fff; text-transform: uppercase; margin-bottom: 4px;
+    }}
+    h1 span {{ color: var(--accent); }}
+    .subtitle {{ font-size: 10px; color: var(--muted); letter-spacing: 0.2em; margin-bottom: 32px; }}
+    .latest-btn {{
+      display: inline-block; padding: 12px 28px;
+      background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.3);
+      color: var(--accent); text-decoration: none; font-size: 12px;
+      letter-spacing: 0.1em; border-radius: 3px; margin-bottom: 32px;
+      transition: background 0.2s;
+    }}
+    .latest-btn:hover {{ background: rgba(0,229,255,0.2); }}
+    .list-title {{ font-size: 9px; color: var(--muted); letter-spacing: 0.2em;
+      text-transform: uppercase; margin-bottom: 12px; }}
+    .report-link {{
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 16px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 3px; margin-bottom: 6px; text-decoration: none;
+      color: var(--text); font-size: 11px; width: 100%; max-width: 480px;
+      transition: border-color 0.2s;
+    }}
+    .report-link:hover {{ border-color: var(--accent); color: var(--accent); }}
+    .arrow {{ color: var(--muted); }}
+    .footer {{
+      margin-top: 32px; font-size: 9px; color: var(--muted);
+      letter-spacing: 0.1em; text-align: center;
+    }}
+  </style>
+</head>
+<body>
+  <h1>Pre-Market <span>Intelligence</span> Radar</h1>
+  <div class="subtitle">USD / IDR DASHBOARD · SCHEDULED 08:00 WIB DAILY</div>
+
+  <a href="./{latest}" class="latest-btn">▶ BUKA REPORT TERBARU</a>
+
+  <div class="list-title">Semua Report ({len(reports)} tersedia)</div>
+  {report_links}
+
+  <div class="footer">Last updated: {now_wib} · Powered by GLM-4.7 · GitHub Actions</div>
+</body>
+</html>"""
+
+    with open(f"{DOCS_DIR}/index.html", "w", encoding="utf-8") as f:
+        f.write(index)
+
+    print(f"✅ docs/index.html diupdate ({len(reports)} reports terdaftar)")
+
+
+if __name__ == "__main__":
+    main()
