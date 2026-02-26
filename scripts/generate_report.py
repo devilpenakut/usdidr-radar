@@ -7,6 +7,7 @@ import os
 import json
 import re
 import datetime
+import time
 import requests
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -203,13 +204,23 @@ def call_glm(prompt: str) -> str:
         "thinking": {"type": "enabled"}   # GLM-4.7 interleaved thinking
     }
 
-    response = requests.post(ZAI_ENDPOINT, headers=headers, json=payload, timeout=120)
-    response.raise_for_status()
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        response = requests.post(ZAI_ENDPOINT, headers=headers, json=payload, timeout=120)
 
-    result = response.json()
-    content = result["choices"][0]["message"]["content"]
-    log(f"✅ Response diterima ({len(content)} chars)")
-    return content
+        if response.status_code == 429:
+            wait = 30 * attempt  # 30s, 60s, 90s, 120s, 150s
+            log(f"⚠️ Rate limit (429) — attempt {attempt}/{max_retries}, tunggu {wait}s...")
+            time.sleep(wait)
+            continue
+
+        response.raise_for_status()
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        log(f"✅ Response diterima ({len(content)} chars)")
+        return content
+
+    raise Exception("❌ Gagal setelah 5 retry — Z.AI tetap rate limit")
 
 
 def extract_html(raw: str) -> str:
