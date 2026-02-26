@@ -1,6 +1,6 @@
 """
 generate_report.py
-Panggil Z.AI GLM-4.7 API dengan data real yang sudah di-fetch,
+Panggil Google Gemini API dengan data real yang sudah di-fetch,
 lalu ekstrak HTML output dan simpan ke outputs/ dan docs/.
 """
 import os
@@ -11,9 +11,9 @@ import time
 import requests
 
 # ── Config ───────────────────────────────────────────────────────────────────
-ZAI_API_KEY = os.environ.get("ZAI_API_KEY", "")
-ZAI_ENDPOINT = "https://api.z.ai/api/paas/v4/chat/completions"
-MODEL = "glm-4.7"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+MODEL = "gemini-3-flash-preview"
 DATE_OVERRIDE = os.environ.get("DATE_OVERRIDE", "").strip()
 TODAY = (
     datetime.date.fromisoformat(DATE_OVERRIDE)
@@ -179,52 +179,54 @@ ATURAN PENTING:
 
 
 def call_glm(prompt: str) -> str:
-    """Panggil Z.AI GLM-4.7 API."""
-    log(f"🤖 Memanggil GLM-4.7 API ({len(prompt)} chars prompt)...")
+    """Panggil Google Gemini API."""
+    log(f"🤖 Memanggil {MODEL} ({len(prompt)} chars prompt)...")
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {ZAI_API_KEY}",
-        "Accept-Language": "en-US,en"
-    }
+    url = GEMINI_ENDPOINT.format(model=MODEL) + f"?key={GEMINI_API_KEY}"
     payload = {
-        "model": MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": "Kamu adalah ahli FX dan front-end developer. Output HANYA kode HTML valid, lengkap, dan self-contained. Tidak ada penjelasan, tidak ada markdown, tidak ada komentar di luar HTML."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "max_tokens": 16000,
-        "temperature": 0.3,
-        "thinking": {"type": "enabled"}   # GLM-4.7 interleaved thinking
+        "system_instruction": {
+            "parts": [{"text": "Kamu adalah ahli FX dan front-end developer. Output HANYA kode HTML valid, lengkap, dan self-contained. Tidak ada penjelasan, tidak ada markdown, tidak ada komentar di luar HTML."}]
+        },
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": 16000,
+            "temperature": 0.3
+        }
     }
 
     max_retries = 5
     for attempt in range(1, max_retries + 1):
-        response = requests.post(ZAI_ENDPOINT, headers=headers, json=payload, timeout=120)
-
-        if response.status_code == 429:
-            wait = 30 * attempt  # 30s, 60s, 90s, 120s, 150s
-            log(f"⚠️ Rate limit (429) — attempt {attempt}/{max_retries}, tunggu {wait}s...")
-            time.sleep(wait)
+        try:
+            response = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=300
+            )
+            if response.status_code == 429:
+                wait = 30 * attempt
+                log(f"⚠️ Rate limit (429) — attempt {attempt}/{max_retries}, tunggu {wait}s...")
+                time.sleep(wait)
+                continue
+            if response.status_code == 503:
+                wait = 20 * attempt
+                log(f"⚠️ Service unavailable — attempt {attempt}/{max_retries}, tunggu {wait}s...")
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            result = response.json()
+            text = result["candidates"][0]["content"]["parts"][0]["text"]
+            log(f"✅ Response diterima ({len(text)} chars)")
+            return text
+        except requests.exceptions.Timeout:
+            log(f"⚠️ Timeout — attempt {attempt}/{max_retries}, retry...")
+            time.sleep(20)
             continue
 
-        response.raise_for_status()
-        result = response.json()
-        content = result["choices"][0]["message"]["content"]
-        log(f"✅ Response diterima ({len(content)} chars)")
-        return content
-
-    raise Exception("❌ Gagal setelah 5 retry — Z.AI tetap rate limit")
-
+    raise Exception(f"❌ Gagal setelah {max_retries} retry — Gemini tidak merespons")
 
 def extract_html(raw: str) -> str:
-    """Ekstrak blok HTML dari response GLM."""
+    """Ekstrak blok HTML dari response Gemini."""
     # Coba ambil dari ```html ... ```
     match = re.search(r"```html\s*(<!DOCTYPE.*?</html>)\s*```", raw, re.DOTALL | re.IGNORECASE)
     if match:
@@ -279,8 +281,8 @@ def save_outputs(html: str, date_str: str):
 
 
 def main():
-    if not ZAI_API_KEY:
-        log("❌ ZAI_API_KEY tidak ada di environment!")
+    if not GEMINI_API_KEY:
+        log("❌ GEMINI_API_KEY tidak ada di environment!")
         exit(1)
 
     log(f"🚀 Generate report untuk {TODAY}")
