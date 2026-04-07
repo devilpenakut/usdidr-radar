@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Market Intelligence Radar USD/IDR</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #080c10;
+            --surface: #0d1318;
+            --border: #1a2332;
+            --cyan: #00f3ff;
+            --orange: #ff8c00;
+            --red: #ff4d4d;
+            --green: #00ff88;
+            --text: #e0e6ed;
+            --text-dim: #8892b0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            overflow-x: hidden;
+            line-height: 1.4;
+        }
+
+        body::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        /* S1 - HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .title-group { display: flex; align-items: center; gap: 15px; }
+        .radar-dot {
+            width: 12px; height: 12px;
+            background: var(--cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--cyan);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 243, 255, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+        h1 { font-family: 'Syne', sans-serif; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px; }
+        .timestamp { color: var(--text-dim); font-size: 0.8rem; text-align: right; }
+
+        /* S2 - RATE HERO */
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .hero-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-card::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+        }
+        .card-cyan::after { background: var(--cyan); }
+        .card-orange::after { background: var(--orange); }
+        .card-green::after { background: var(--green); }
+        .card-red::after { background: var(--red); }
+
+        .label-row { display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 8px; }
+        .val { font-size: 1.4rem; font-weight: bold; font-family: 'Syne', sans-serif; }
+        .sub-val { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+        .status-tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.1); }
+
+        /* S3 - CHART */
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 20px;
+            margin-bottom: 25px;
+            position: relative;
+        }
+        .chart-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+        .trend-badge {
+            padding: 4px 12px; font-size: 0.8rem; font-weight: bold; border-radius: 4px;
+        }
+        .uptrend { background: rgba(0, 255, 136, 0.2); color: var(--green); border: 1px solid var(--green); }
+
+        /* S4 - NEWS & ANALYSIS */
+        .grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .section-title { font-family: 'Syne', sans-serif; font-size: 0.9rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .news-item {
+            background: rgba(255,255,255,0.02);
+            padding: 12px;
+            border-left: 2px solid var(--text-dim);
+            margin-bottom: 10px;
+            font-size: 0.8rem;
+        }
+        .news-meta { display: flex; gap: 10px; margin-bottom: 5px; font-size: 0.7rem; }
+        .tag-neutral { color: #aaa; border: 1px solid #555; padding: 0 4px; }
+        
+        .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .analysis-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+        .analysis-table tr:last-child td { border: none; }
+        .quick-take {
+            margin-top: 15px; padding: 12px; background: rgba(0, 243, 255, 0.05);
+            border: 1px dashed var(--cyan); font-size: 0.8rem;
+        }
+
+        /* S5 - VOLATILITY & RISK */
+        .risk-bar-container { margin-bottom: 12px; }
+        .risk-label { display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 4px; }
+        .progress-bg { height: 6px; background: #1a2332; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--cyan); }
+
+        /* S6 - SENTIMENT & MACRO */
+        .macro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .macro-box {
+            background: var(--surface); border: 1px solid var(--border);
+            padding: 10px; text-align: center;
+        }
+        .macro-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; }
+        .macro-val { font-size: 0.9rem; font-weight: bold; margin-top: 4px; }
+
+        /* S7 - TWITTER */
+        .twitter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+        .tweet-card {
+            background: var(--surface); border: 1px solid var(--border); padding: 12px; font-size: 0.75rem;
+        }
+        .tweet-tag { color: var(--cyan); font-weight: bold; margin-bottom: 5px; display: block; }
+        .tweet-proxy { font-size: 0.6rem; color: var(--orange); float: right; }
+
+        /* S8 - TELEGRAM */
+        .telegram-box {
+            background: #17212b; border: 1px solid #2b3948; padding: 20px;
+            border-radius: 8px; font-family: 'DM Mono', monospace; position: relative;
+        }
+        .telegram-box::before {
+            content: "TELEGRAM PREVIEW"; position: absolute; top: -10px; left: 20px;
+            background: #2481cc; padding: 2px 10px; font-size: 0.6rem; border-radius: 4px;
+        }
+        .tg-line { margin-bottom: 4px; color: #fff; font-size: 0.85rem; }
+
+        /* S9 - FOOTER */
+        footer {
+            border-top: 1px solid var(--border); padding-top: 20px; margin-top: 40px;
+            display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-dim);
+        }
+
+        canvas { max-width: 100% !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- S1: HEADER -->
+    <header>
+        <div class="title-group">
+            <div class="radar-dot"></div>
+            <h1>Pre-Market Intelligence Radar · USD/IDR</h1>
+        </div>
+        <div class="timestamp">
+            07 APR 2026 · 10:45 WIB<br>
+            <span style="color: var(--cyan)">SYSTEM STATUS: OPERATIONAL</span>
+        </div>
+    </header>
+
+    <!-- S2: RATE HERO -->
+    <div class="hero-grid">
+        <div class="hero-card card-cyan">
+            <div class="label-row">
+                <span>SPOT USD/IDR</span>
+                <span class="status-tag">● LIVE</span>
+            </div>
+            <div class="val">17,011</div>
+            <div class="sub-val" style="color: var(--red)">+0.573% (Bullish USD)</div>
+        </div>
+        <div class="hero-card card-orange">
+            <div class="label-row">
+                <span>BCA E-RATE</span>
+                <span class="status-tag">⚡ PROXY</span>
+            </div>
+            <div class="val">16,999 / 17,101</div>
+            <div class="sub-val">Spread: 102.0 IDR</div>
+        </div>
+        <div class="hero-card card-green">
+            <div class="label-row">
+                <span>30D RANGE / AVG</span>
+                <span class="status-tag">● LIVE</span>
+            </div>
+            <div class="val">16,858 – 17,018</div>
+            <div class="sub-val">Avg: 16,936.05</div>
+        </div>
+        <div class="hero-card card-red">
+            <div class="label-row">
+                <span>BI RATE / JISDOR</span>
+                <span class="status-tag">⚠ STALE</span>
+            </div>
+            <div class="val">4.75% / None</div>
+            <div class="sub-val">Decision: Hold</div>
+        </div>
+    </div>
+
+    <!-- S3: CHART -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <div class="section-title">30-DAY PRICE ACTION & MOVING AVERAGES</div>
+            <div class="trend-badge uptrend">TREND: UPTREND (Price > 20D MA)</div>
+        </div>
+        <canvas id="mainChart" height="100"></canvas>
+    </div>
+
+    <!-- S4: NEWS & ANALYSIS -->
+    <div class="grid-2">
+        <div>
+            <div class="section-title">LATEST INTELLIGENCE (24H)</div>
+            <div class="news-item">
+                <div class="news-meta"><span class="tag-neutral">NEUTRAL</span> <span>CNA · 09:46</span></div>
+                Indonesia mulls airlines’ call for 15% fuel surcharge hike over Middle East war.
+            </div>
+            <div class="news-item">
+                <div class="news-meta"><span class="tag-neutral">NEUTRAL</span> <span>GlobeNewswire · 20:15</span></div>
+                Navigator Gas Announces Preliminary Fourth Quarter 2025 Results (Unaudited).
+            </div>
+            <div class="news-item">
+                <div class="news-meta"><span class="tag-neutral">NEUTRAL</span> <span>Antaranews · 10:37</span></div>
+                BI drops rate-cut signal as Rupiah pressures mount.
+            </div>
+            <div class="news-item">
+                <div class="news-meta"><span class="tag-neutral">NEUTRAL</span> <span>CNA · 09:55</span></div>
+                Indonesia holds rates steady, signals Iran war limits room for cuts.
+            </div>
+            <div class="news-item">
+                <div class="news-meta"><span class="tag-neutral">NEUTRAL</span> <span>Reuters · 08:55</span></div>
+                BI to hold key rate at 4.75% as Middle East war weighs on rupiah.
+            </div>
+        </div>
+        <div>
+            <div class="section-title">MARKET ANALYSIS</div>
+            <table class="analysis-table">
+                <tr><td>DXY Strength</td><td style="text-align:right; color:var(--cyan)">100.1 (+0.07%)</td></tr>
+                <tr><td>IDR Volatility</td><td style="text-align:right; color:var(--orange)">ATR: 47.83 (Med)</td></tr>
+                <tr><td>Sentiment</td><td style="text-align:right; color:var(--text-dim)">100% Neutral</td></tr>
+                <tr><td>Support</td><td style="text-align:right; color:var(--green)">16,858</td></tr>
+                <tr><td>Resistance</td><td style="text-align:right; color:var(--red)">17,018</td></tr>
+            </table>
+            <div class="quick-take">
+                <strong>QUICK TAKE:</strong> Rupiah remains under pressure as Middle East tensions limit BI's room for rate cuts. Spot price is testing the 30-day high of 17,018.
+            </div>
+        </div>
+    </div>
+
+    <!-- S5: VOLATILITY & RISK -->
+    <div class="grid-2">
+        <div>
+            <div class="section-title">SIGNAL INTENSITY</div>
+            <canvas id="signalChart" height="180"></canvas>
+        </div>
+        <div>
+            <div class="section-title">RISK HEATMAP</div>
+            <div class="risk-bar-container">
+                <div class="risk-label"><span>DXY STRENGTH</span><span>60%</span></div>
+                <div class="progress-bg"><div class="progress-fill" style="width: 60%"></div></div>
+            </div>
+            <div class="risk-bar-container">
+                <div class="risk-label"><span>GEOPOLITICAL (WAR)</span><span>75%</span></div>
+                <div class="progress-bg"><div class="progress-fill" style="width: 75%; background: var(--red)"></div></div>
+            </div>
+            <div class="risk-bar-container">
+                <div class="risk-label"><span>IDR VOLATILITY</span><span>48%</span></div>
+                <div class="progress-bg"><div class="progress-fill" style="width: 48%; background: var(--orange)"></div></div>
+            </div>
+            <div class="risk-bar-container">
+                <div class="risk-label"><span>INTEREST RATE RISK</span><span>30%</span></div>
+                <div class="progress-bg"><div class="progress-fill" style="width: 30%"></div></div>
+            </div>
+            <div class="risk-bar-container">
+                <div class="risk-label"><span>LIQUIDITY RISK</span><span>40%</span></div>
+                <div class="progress-bg"><div class="progress-fill" style="width: 40%"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- S6: SENTIMENT & MACRO -->
+    <div class="grid-2">
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <div class="section-title" style="align-self: flex-start;">NEWS SENTIMENT DISTRIBUTION</div>
+            <div style="width: 200px; height: 200px;">
+                <canvas id="sentimentChart"></canvas>
+            </div>
+        </div>
+        <div>
+            <div class="section-title">MACRO DATA POINTS</div>
+            <div class="macro-grid">
+                <div class="macro-box"><div class="macro-label">BI RATE</div><div class="macro-val">4.75%</div></div>
+                <div class="macro-box"><div class="macro-label">DXY</div><div class="macro-val">100.1</div></div>
+                <div class="macro-box"><div class="macro-label">GDP GROWTH</div><div class="macro-val">5.05%</div></div>
+                <div class="macro-box"><div class="macro-label">INFLATION</div><div class="macro-val">2.75%</div></div>
+                <div class="macro-box"><div class="macro-label">30D HIGH</div><div class="macro-val">17,018</div></div>
+                <div class="macro-box"><div class="macro-label">30D LOW</div><div class="macro-val">16,858</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- S7: TWITTER SENTIMENT -->
+    <div class="section-title">SOCIAL SENTIMENT (X/TWITTER PROXY)</div>
+    <div class="twitter-grid">
+        <div class="tweet-card">
+            <span class="tweet-proxy">⚡ PROXY</span>
+            <span class="tweet-tag">#RupiahMelemah</span>
+            Sentimen negatif dominan — publik khawatir IDR melemah lebih lanjut.
+            <div style="margin-top:8px; color:var(--red)">→ BEARISH_IDR</div>
+        </div>
+        <div class="tweet-card">
+            <span class="tweet-proxy">⚡ PROXY</span>
+            <span class="tweet-tag">#BIRate</span>
+            Diskusi soal kebijakan suku bunga BI dan dampaknya ke nilai tukar.
+            <div style="margin-top:8px; color:var(--orange)">→ MIXED</div>
+        </div>
+        <div class="tweet-card">
+            <span class="tweet-proxy">⚡ PROXY</span>
+            <span class="tweet-tag">#kursrupiah</span>
+            Update kurs harian — pelaku pasar pantau level support/resistance.
+            <div style="margin-top:8px; color:var(--text-dim)">→ NEUTRAL</div>
+        </div>
+        <div class="tweet-card">
+            <span class="tweet-proxy">⚡ PROXY</span>
+            <span class="tweet-tag">#DollarRupiah</span>
+            Pergerakan DXY dan dampaknya ke IDR menjadi perhatian utama trader.
+            <div style="margin-top:8px; color:var(--orange)">→ MIXED</div>
+        </div>
+    </div>
+
+    <!-- S8: TELEGRAM PREVIEW -->
+    <div class="telegram-box">
+        <div class="tg-line">🚨 <b>USD/IDR PRE-MARKET RADAR - 07 APR 2026</b></div>
+        <div class="tg-line">💵 Spot: 17,011 (+0.573%) | DXY: 100.1 (+0.07%)</div>
+        <div class="tg-line">📈 Trend: <b>UPTREND</b> (Price > 20D MA 16,936)</div>
+        <div class="tg-line">📰 News: 100% Neutral | Twitter: Bearish IDR Bias</div>
+        <div class="tg-line">⚠️ Risk: Middle East war tensions limiting BI rate cuts.</div>
+        <div class="tg-line">🎯 Range: 16,858 - 17,018. Watch resistance at 17,020.</div>
+    </div>
+
+    <!-- S9: FOOTER -->
+    <footer>
+        <div>Data Sources: frankfurter.app, BCA Proxy, BI Proxy, Social Scraper</div>
+        <div>Generated: 2026-04-07 10:45:00 WIB · Next Update: 11:45:00 WIB</div>
+    </footer>
+</div>
+
+<script>
+    // Chart.js Global Config
+    Chart.defaults.color = '#8892b0';
+    Chart.defaults.font.family = "'DM Mono', monospace";
+
+    // S3: Main Price Chart
+    const ctxMain = document.getElementById('mainChart').getContext('2d');
+    new Chart(ctxMain, {
+        type: 'line',
+        data: {
+            labels: ["03-06", "03-09", "03-10", "03-11", "03-12", "03-13", "03-16", "03-17", "03-18", "03-19", "03-20", "03-23", "03-24", "03-25", "03-26", "03-27", "03-30", "03-31", "04-01", "04-02"],
+            datasets: [
+                {
+                    label: 'USD/IDR Spot',
+                    data: [16973, 16942, 16866, 16898, 16886, 16900, 16965, 16958, 16994, 16961, 16925, 16896, 16891, 16858, 16917, 16983, 17018, 16965, 16914, 17011],
+                    borderColor: '#00f3ff',
+                    backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: '5D MA',
+                    data: [null, null, null, null, 16913.0, 16898.4, 16903.0, 16921.4, 16940.6, 16955.6, 16960.6, 16946.8, 16933.4, 16906.2, 16897.4, 16909.0, 16933.4, 16948.2, 16959.4, 16978.2],
+                    borderColor: '#ff8c00',
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                },
+                {
+                    label: '20D MA',
+                    data: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 16936.05],
+                    borderColor: '#ff4d4d',
+                    borderDash: [2, 2],
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } } },
+            scales: {
+                y: { grid: { color: '#1a2332' }, min: 16800, max: 17100 },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // S5: Signal Intensity Chart
+    const ctxSignal = document.getElementById('signalChart').getContext('2d');
+    new Chart(ctxSignal, {
+        type: 'bar',
+        data: {
+            labels: ['DXY', 'ATR', 'NEWS', 'SOCIAL', 'MA-5', 'MA-20'],
+            datasets: [{
+                data: [65, 48, 50, 75, 80, 60],
+                backgroundColor: ['#00f3ff', '#ff8c00', '#8892b0', '#ff4d4d', '#00ff88', '#00f3ff']
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { max: 100, grid: { color: '#1a2332' } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+
+    // S6: Sentiment Donut
+    const ctxSent = document.getElementById('sentimentChart').getContext('2d');
+    new Chart(ctxSent, {
+        type: 'doughnut',
+        data: {
+            labels: ['Bullish IDR', 'Bearish IDR', 'Neutral'],
+            datasets: [{
+                data: [0, 0, 100],
+                backgroundColor: ['#00ff88', '#ff4d4d', '#1a2332'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            cutout: '70%',
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+    });
+</script>
+
+</body>
+</html>
