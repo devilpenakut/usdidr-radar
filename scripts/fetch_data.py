@@ -39,6 +39,7 @@ TODAY = (
 DATE_30D_AGO = TODAY - datetime.timedelta(days=30)
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; USDIDR-Radar/1.0)"}
 OUTPUT_PATH = "data/market_data.json"
+BCA_KURS_URL = "https://www.bca.co.id/id/informasi/kurs"
 
 os.makedirs("data", exist_ok=True)
 
@@ -77,7 +78,52 @@ def fetch_frankfurter():
         return {"spot": None, "prices": [], "dates": [], "label": "STALE", "error": str(e)}
 
 
-# ── B: BCA E-Rate (Tavily extract → fallback proxy) ──────────────────────────
+# ── Reader proxy: halaman → markdown (handle JS rendering, tanpa API key) ────
+READERS = ["https://r.jina.ai/", "https://markdown.new/"]
+
+
+def read_as_markdown(url: str) -> str:
+    """Coba tiap reader berurutan, kembalikan markdown pertama yang berhasil."""
+    for reader in READERS:
+        try:
+            r = requests.get(reader + url, headers=HEADERS, timeout=60)
+            if r.ok and len(r.text) > 200:
+                return r.text
+            log(f"  ⚠️ {reader} {url}: HTTP {r.status_code}")
+        except Exception as e:
+            log(f"  ⚠️ {reader} {url}: {e}")
+    return ""
+
+
+def parse_bca_usd(raw: str):
+    """Cari baris USD di konten kurs BCA → (buy, sell) e-Rate, atau None."""
+    for line in raw.splitlines():
+        if "USD" in line.upper() or "Dollar" in line:
+            nums = []
+            for n in re.findall(r"1[0-9][.,]\d{3}(?:[.,]\d{1,2})?", line):
+                try:
+                    nums.append(float(n.replace(".", "").replace(",", ".")))
+                except ValueError:
+                    pass
+            nums = [n for n in nums if 10000 < n < 25000]
+            if len(nums) >= 2:
+                return tuple(sorted(nums[:2]))
+    return None
+
+
+def bca_result(buy, sell, source):
+    log(f"  ✅ BCA via {source}: Buy={buy} Sell={sell}")
+    return {
+        "buy": buy, "sell": sell, "mid": round((buy + sell) / 2, 0),
+        "source": f"bca.co.id via {source}",
+        "timestamp": datetime.datetime.now(
+            datetime.timezone(datetime.timedelta(hours=7))
+        ).strftime("%H:%M WIB"),
+        "label": "LIVE"
+    }
+
+
+# ── B: BCA E-Rate (Tavily → reader proxy → fallback proxy) ───────────────────
 def fetch_bca_rate():
     log("B: Fetching BCA E-Rate...")
 
@@ -86,40 +132,30 @@ def fetch_bca_rate():
         try:
             from tavily import TavilyClient
             client = TavilyClient(api_key=TAVILY_API_KEY)
-            resp = client.extract(urls=["https://www.bca.co.id/id/informasi/kurs"])
+            resp = client.extract(urls=[BCA_KURS_URL])
             raw = ""
             for r in resp.get("results", []):
                 raw += r.get("raw_content", "")
 
-            # Parse angka IDR dari konten — cari pola USD + angka 5 digit
-            lines = raw.splitlines()
-            for line in lines:
-                if "USD" in line.upper() or "Dollar" in line:
-                    nums = re.findall(r"1[0-9][.,]\d{3}(?:[.,]\d{1,2})?", line)
-                    nums_clean = []
-                    for n in nums:
-                        try:
-                            nums_clean.append(float(n.replace(".", "").replace(",", ".")))
-                        except:
-                            pass
-                    nums_valid = [n for n in nums_clean if 10000 < n < 25000]
-                    if len(nums_valid) >= 2:
-                        buy, sell = sorted(nums_valid[:2])
-                        mid = round((buy + sell) / 2, 0)
-                        log(f"  ✅ BCA via Tavily: Buy={buy} Sell={sell}")
-                        return {
-                            "buy": buy, "sell": sell, "mid": mid,
-                            "source": "bca.co.id via Tavily",
-                            "timestamp": datetime.datetime.now(
-                                datetime.timezone(datetime.timedelta(hours=7))
-                            ).strftime("%H:%M WIB"),
-                            "label": "LIVE"
-                        }
+            rates = parse_bca_usd(raw)
+            if rates:
+                return bca_result(*rates, "Tavily")
             log("  ⚠️ Tavily extract BCA: angka tidak ditemukan di konten")
         except Exception as e:
             log(f"  ⚠️ Tavily BCA error: {e}")
 
-    # Opsi 2: fawazahmed0 currency API (no key, gratis)
+    # Opsi 2: reader proxy (r.jina.ai → markdown.new), gratis tanpa key
+    for reader in READERS:
+        try:
+            r = requests.get(reader + BCA_KURS_URL, headers=HEADERS, timeout=60)
+            rates = parse_bca_usd(r.text) if r.ok else None
+            if rates:
+                return bca_result(*rates, reader.split("//")[1].rstrip("/"))
+            log(f"  ⚠️ {reader}: angka USD tidak ditemukan (HTTP {r.status_code})")
+        except Exception as e:
+            log(f"  ⚠️ {reader} BCA error: {e}")
+
+    # Opsi 3: fawazahmed0 currency API (no key, gratis)
     try:
         r = requests.get(
             "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
@@ -141,7 +177,7 @@ def fetch_bca_rate():
     except Exception as e:
         log(f"  ⚠️ fawazahmed0 error: {e}")
 
-    # Opsi 3: open.er-api
+    # Opsi 4: open.er-api
     try:
         r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=10)
         r.raise_for_status()
@@ -410,13 +446,17 @@ def fetch_news_scraping():
             }, timeout=15)
             soup = BeautifulSoup(r.text, "html.parser")
 
-            # Cari semua heading/link yang mengandung kata kunci
-            candidates = soup.find_all(["h1","h2","h3","a"], limit=30)
-            for el in candidates:
-                title = el.get_text(strip=True)
-                if len(title) < 20:
+            titles = [el.get_text(strip=True) for el in soup.find_all(["h1","h2","h3","a"], limit=30)]
+            keywords = ["rupiah","kurs","IDR","BI rate","dollar","devisa","valas"]
+            if not any(any(k.lower() in t.lower() for k in keywords) for t in titles):
+                # Halaman di-render JS / diblokir → ambil versi markdown via reader
+                # Judul biasanya **tebal**, # heading, atau teks [link](...)
+                md = read_as_markdown(url)
+                titles = re.findall(r"\*\*([^*\n]{20,200})\*\*|^#+ (.{20,200})$|\[([^\[\]!]{20,200})\]\(", md, re.M)
+                titles = [next(t for t in g if t).strip() for g in titles]
+            for title in titles:
+                if len(title) < 20 or title.startswith(("!", "Image ")):
                     continue
-                keywords = ["rupiah","kurs","IDR","BI rate","dollar","devisa","valas"]
                 if any(k.lower() in title.lower() for k in keywords):
                     if title not in seen:
                         seen.add(title)

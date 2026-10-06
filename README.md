@@ -89,11 +89,11 @@ Otomatis **skip** pada:
 |------|--------|-------|-------|
 | Spot USD/IDR | [Frankfurter.app](https://api.frankfurter.app) | ✅ | LIVE |
 | Historical 30D | [Frankfurter.app](https://api.frankfurter.app) | ✅ | LIVE |
-| BCA E-Rate | bca.co.id via Tavily (fallback: currency-api / open.er-api) | ✅ | LIVE/PROXY |
+| BCA E-Rate | bca.co.id via Tavily → r.jina.ai → markdown.new (fallback: currency-api / open.er-api) | ✅ | LIVE/PROXY |
 | BI JISDOR | Webservice bi.go.id | ✅ | LIVE/PROXY |
 | DXY Index | Yahoo Finance (yfinance) | ✅ | LIVE |
 | BI Rate | NewsAPI / fallback | ✅ | LIVE/STALE |
-| Berita 24H | NewsAPI.org (fallback: scraping CNBC/Bisnis/Kontan) | ✅ free tier | LIVE/PROXY |
+| Berita 24H | NewsAPI.org (fallback: scraping CNBC/Bisnis/Kontan, via r.jina.ai / markdown.new jika diblokir) | ✅ free tier | LIVE/PROXY |
 | Implied Volatility | ATR 14D proxy | ✅ | ⚡ PROXY |
 
 > Label **⚡ PROXY** = estimasi, bukan data langsung  
