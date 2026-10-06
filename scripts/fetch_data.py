@@ -473,14 +473,8 @@ def fetch_news_scraping():
             log(f"  ⚠️ Scraping {src_name}: {e}")
             continue
 
-    # Jika masih kosong — gunakan headline statis berdasarkan konteks DXY + spot
     if not results:
-        log("  ℹ️ Menggunakan fallback headlines kontekstual")
-        results = [
-            {"title": "Rupiah stabil di kisaran 16.700-an, pasar tunggu data inflasi AS", "source": "Fallback", "datetime": TODAY.isoformat(), "classification": "NEUTRAL", "label": "PROXY"},
-            {"title": "BI pertahankan suku bunga 4,75% demi jaga stabilitas rupiah", "source": "Fallback", "datetime": TODAY.isoformat(), "classification": "NEUTRAL", "label": "PROXY"},
-            {"title": "DXY menguat tipis, tekanan eksternal masih bayangi rupiah", "source": "Fallback", "datetime": TODAY.isoformat(), "classification": "BEARISH_IDR", "label": "PROXY"},
-        ]
+        log("  ⚠️ Tidak ada berita dari semua sumber — dibiarkan kosong (tidak dikarang)")
     return results[:5]
 
 
@@ -533,7 +527,9 @@ def compute_ma(prices: list, window: int) -> list:
 
 # ── Compute sentiment distribution ───────────────────────────────────────────
 def compute_sentiment_dist(news: list) -> dict:
-    total = len(news) if news else 1
+    if not news:
+        return {"bullish_pct": 0, "bearish_pct": 0, "neutral_pct": 0, "empty": True}
+    total = len(news)
     bull = sum(1 for n in news if n["classification"] == "BULLISH_IDR")
     bear = sum(1 for n in news if n["classification"] == "BEARISH_IDR")
     neu = total - bull - bear

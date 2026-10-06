@@ -55,6 +55,8 @@ def build_prompt(data: dict) -> str:
         f"  {i+1}. [{n['classification']}] {n['title']} — {n.get('source','')} {n.get('datetime','')}"
         for i, n in enumerate(news[:5])
     ])
+    if not news_text:
+        news_text = "  (TIDAK ADA BERITA — semua sumber gagal)"
 
     prices_json = json.dumps(hist["prices"][-30:])
     dates_json = json.dumps(hist["dates"][-30:])
@@ -156,6 +158,8 @@ S8 — FOOTER: sumber data, timestamp, schedule info
 
 ATURAN PENTING:
 - SEMUA angka di chart harus berasal dari data real di atas, BUKAN dikarang
+- JANGAN mengarang judul berita, sumber, atau tanggal. Tampilkan HANYA berita dari section G, persis apa adanya.
+  Jika section G kosong, tampilkan pesan "Tidak ada berita tersedia hari ini" (dan donut sentimen diganti teks yang sama)
 - Label ● LIVE / ⚡ PROXY / ⚠ STALE wajib muncul di setiap data point
 - Output HANYA berisi kode HTML (mulai dari <!DOCTYPE html> hingga </html>)
 - Tidak ada teks penjelasan sebelum atau sesudah kode HTML
