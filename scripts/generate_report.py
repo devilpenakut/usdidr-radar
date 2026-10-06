@@ -182,7 +182,7 @@ def call_glm(prompt: str) -> str:
     """Panggil Google Gemini API."""
     log(f"🤖 Memanggil {MODEL} ({len(prompt)} chars prompt)...")
 
-    url = GEMINI_ENDPOINT.format(model=MODEL) + f"?key={GEMINI_API_KEY}"
+    url = GEMINI_ENDPOINT.format(model=MODEL)
     payload = {
         "system_instruction": {
             "parts": [{"text": "Kamu adalah ahli FX dan front-end developer. Output HANYA kode HTML valid, lengkap, dan self-contained. Tidak ada penjelasan, tidak ada markdown, tidak ada komentar di luar HTML."}]
@@ -199,7 +199,7 @@ def call_glm(prompt: str) -> str:
         try:
             response = requests.post(
                 url,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
                 json=payload,
                 timeout=300
             )
