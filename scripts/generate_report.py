@@ -140,16 +140,19 @@ S3 — 30-DAY PRICE CHART (full width):
   - Sumbu X: label tanggal dari array dates
 
 S4 — NEWS FEED + ANALYSIS TABLE (2 kolom):
-  Kiri: 5 berita dari section G, setiap berita pakai dot hijau/merah/kuning + badge klasifikasi
+  Kiri: berita dari section G (sebanyak yang tersedia, maks 5), setiap berita pakai dot hijau/merah/kuning + badge klasifikasi
   Kanan: tabel analisis 5 faktor + quick take paragraph 2 baris
 
 S5 — VOLATILITY BAR + RISK HEATMAP (2 kolom):
-  Kiri: Bar chart 6 faktor signal intensity (estimasi dari data yang ada)
-  Kanan: 8 progress bar risk scoring
+  Kiri: Bar chart 6 faktor signal intensity (penilaian AI dari data di atas)
+  Kanan: 8 progress bar risk scoring (penilaian AI dari data di atas)
+  WAJIB: judul section dan kedua panel diberi badge "⚡ ESTIMASI AI" yang jelas terlihat,
+  plus catatan kecil "Skor adalah penilaian model, bukan data pasar"
 
 S6 — SENTIMENT DONUT + MACRO (2 kolom):
   Kiri: Donut chart pakai data ACTUAL: Bearish {sent['bearish_pct']}% / Bullish {sent['bullish_pct']}% / Neutral {sent['neutral_pct']}%
-  Kanan: 6 kotak macro (BI Rate, DXY, GDP, Next release, Tariff, IDR high)
+  Kanan: 6 kotak macro, HANYA dari data di atas: BI Rate (F), DXY (E), IDR 30D High, IDR 30D Low, Avg 30D (D), ATR 14D (I)
+  Jangan tambah indikator lain (GDP, inflasi, tarif, jadwal rilis, dll.) — data itu tidak tersedia
 
 S7 — TELEGRAM PREVIEW BOX:
   Tulis pesan Telegram 6 baris berdasarkan analisis data hari ini
