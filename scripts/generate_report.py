@@ -1,7 +1,7 @@
 """
 generate_report.py
 Panggil Google Gemini API dengan data real yang sudah di-fetch,
-lalu ekstrak HTML output dan simpan ke outputs/ dan docs/.
+lalu ekstrak HTML output dan simpan ke docs/.
 """
 import os
 import json
@@ -21,10 +21,8 @@ TODAY = (
     else (datetime.datetime.utcnow() + datetime.timedelta(hours=7)).date()
 )
 DATA_PATH = "data/market_data.json"
-OUTPUT_DIR = "outputs"
 DOCS_DIR = "docs"
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DOCS_DIR, exist_ok=True)
 
 
@@ -48,7 +46,6 @@ def build_prompt(data: dict) -> str:
     bi_rate = d["bi_rate"]
     hist = d["historical"]
     news = d["news"]
-    twitter = d["twitter"]
     vol = d["volatility"]
     sent = d["sentiment_dist"]
     meta = d["meta"]
@@ -57,11 +54,6 @@ def build_prompt(data: dict) -> str:
     news_text = "\n".join([
         f"  {i+1}. [{n['classification']}] {n['title']} — {n.get('source','')} {n.get('datetime','')}"
         for i, n in enumerate(news[:5])
-    ])
-
-    twitter_text = "\n".join([
-        f"  {t['theme_number']}. {t['hashtag']} [{t['engagement']}] — {t['summary']} → {t['classification']}"
-        for t in twitter[:4]
     ])
 
     prices_json = json.dumps(hist["prices"][-30:])
@@ -110,9 +102,6 @@ F. BI RATE:
 G. BERITA TERKINI (24H):
 {news_text}
 
-H. X/TWITTER SENTIMENT (PROXY):
-{twitter_text}
-
 I. VOLATILITY PROXY (ATR 14D):
    ATR: ±{vol.get('atr', 'N/A')} IDR ({vol.get('atr_pct', 'N/A')}%) → {vol.get('interpretation', 'N/A')}
    Label: PROXY
@@ -160,12 +149,10 @@ S6 — SENTIMENT DONUT + MACRO (2 kolom):
   Kiri: Donut chart pakai data ACTUAL: Bearish {sent['bearish_pct']}% / Bullish {sent['bullish_pct']}% / Neutral {sent['neutral_pct']}%
   Kanan: 6 kotak macro (BI Rate, DXY, GDP, Next release, Tariff, IDR high)
 
-S7 — TWITTER SENTIMENT (4 kartu): pakai data dari section H, label ⚡ PROXY di setiap kartu
-
-S8 — TELEGRAM PREVIEW BOX:
+S7 — TELEGRAM PREVIEW BOX:
   Tulis pesan Telegram 6 baris berdasarkan analisis data hari ini
 
-S9 — FOOTER: sumber data, timestamp, schedule info
+S8 — FOOTER: sumber data, timestamp, schedule info
 
 ATURAN PENTING:
 - SEMUA angka di chart harus berasal dari data real di atas, BUKAN dikarang
@@ -174,6 +161,15 @@ ATURAN PENTING:
 - Tidak ada teks penjelasan sebelum atau sesudah kode HTML
 - File harus self-contained dan bisa dibuka offline (kecuali Google Fonts + Chart.js CDN)
 - Jangan gunakan localStorage atau sessionStorage
+
+ATURAN AKSESIBILITAS (wajib):
+- Struktur: <header>, <main>, <footer>; satu <h1> untuk judul, <h2> untuk tiap section S2–S8
+- Warna via CSS custom properties di :root (--bg, --surface, --border, --text, --muted, accent), bukan hex berulang
+- Ukuran font minimal 12px (0.75rem) untuk SEMUA teks termasuk badge/label; teks isi minimal 14px
+- Kontras teks minimal 4.5:1 terhadap background (warna muted jangan lebih gelap dari #8a9bb0 di bg gelap)
+- Setiap <canvas> chart wajib role="img" dan aria-label berisi ringkasan angka (mis. "USD/IDR 30 hari, naik dari X ke Y")
+- Animasi (radar pulse, dll.) dimatikan di @media (prefers-reduced-motion: reduce)
+- Responsif: grid jadi 1 kolom di @media (max-width: 640px), tanpa scroll horizontal di lebar 375px
 """
     return prompt
 
@@ -245,33 +241,12 @@ def extract_html(raw: str) -> str:
 def save_outputs(html: str, date_str: str):
     filename = f"PreMarket_Radar_USDIDR_{date_str}.html"
 
-    # Simpan ke outputs/
-    out_path = os.path.join(OUTPUT_DIR, filename)
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    log(f"💾 Disimpan: {out_path}")
-
     # Simpan ke docs/ untuk GitHub Pages
     docs_path = os.path.join(DOCS_DIR, filename)
     with open(docs_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    # Update docs/index.html sebagai halaman utama GitHub Pages
-    index_html = f"""<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./{filename}">
-  <title>USD/IDR Pre-Market Radar</title>
-</head>
-<body>
-  <p>Redirecting to latest report... <a href="./{filename}">Click here</a></p>
-</body>
-</html>"""
-    with open(os.path.join(DOCS_DIR, "index.html"), "w") as f:
-        f.write(index_html)
-
-    log(f"🌐 GitHub Pages: docs/{filename} + docs/index.html")
+    log(f"🌐 GitHub Pages: {docs_path}")
 
     # Simpan path untuk step berikutnya
     with open("data/latest_report.txt", "w") as f:

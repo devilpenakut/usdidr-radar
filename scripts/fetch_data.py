@@ -8,7 +8,6 @@ Ambil semua data real untuk dashboard USD/IDR:
   E. DXY (Yahoo Finance via yfinance)
   F. BI Rate (scraping / fallback)
   G. Berita terkini (NewsAPI)
-  H. Sentimen Twitter (proxy dari berita)
   I. Volatility proxy (ATR 14D)
 
 Output: data/market_data.json
@@ -30,7 +29,6 @@ except ImportError:
 
 # ── Config ──────────────────────────────────────────────────────────────────
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
-TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 DATE_OVERRIDE = os.environ.get("DATE_OVERRIDE", "").strip()
 TODAY = (
@@ -462,54 +460,6 @@ def classify_news(title: str) -> str:
 
 
 # ── H: Twitter Sentiment Proxy ────────────────────────────────────────────────
-def build_twitter_proxy(news: list) -> list:
-    """Bangun sentimen Twitter berdasarkan tone berita (proxy)."""
-    log("H: Building Twitter sentiment proxy...")
-    bull = sum(1 for n in news if n["classification"] == "BULLISH_IDR")
-    bear = sum(1 for n in news if n["classification"] == "BEARISH_IDR")
-    dominant = "BEARISH_IDR" if bear >= bull else "BULLISH_IDR"
-
-    themes = [
-        {
-            "theme_number": 1,
-            "hashtag": "#RupiahMelemah" if dominant == "BEARISH_IDR" else "#RupiahMenguat",
-            "engagement": "High",
-            "summary": (
-                "Sentimen negatif dominan — publik khawatir IDR melemah lebih lanjut."
-                if dominant == "BEARISH_IDR"
-                else "Sentimen positif — publik apresiasi penguatan IDR."
-            ),
-            "classification": dominant,
-            "is_proxy": True
-        },
-        {
-            "theme_number": 2,
-            "hashtag": "#BIRate",
-            "engagement": "Moderate",
-            "summary": "Diskusi soal kebijakan suku bunga BI dan dampaknya ke nilai tukar.",
-            "classification": "MIXED",
-            "is_proxy": True
-        },
-        {
-            "theme_number": 3,
-            "hashtag": "#kursrupiah",
-            "engagement": "High",
-            "summary": "Update kurs harian — banyak pelaku pasar dan retail pantau level support/resistance.",
-            "classification": "NEUTRAL",
-            "is_proxy": True
-        },
-        {
-            "theme_number": 4,
-            "hashtag": "#DollarRupiah",
-            "engagement": "Moderate",
-            "summary": "Pergerakan DXY dan dampaknya ke IDR menjadi perhatian utama trader.",
-            "classification": "MIXED",
-            "is_proxy": True
-        }
-    ]
-    return themes
-
-
 # ── I: Volatility Proxy (ATR 14D) ─────────────────────────────────────────────
 def compute_atr(prices: list) -> dict:
     log("I: Computing ATR 14D as volatility proxy...")
@@ -564,7 +514,6 @@ def main():
     dxy = fetch_dxy()
     bi_rate = fetch_bi_rate()
     news = fetch_news()
-    twitter = build_twitter_proxy(news)
     vol = compute_atr(rate_data.get("prices", []))
 
     prices = rate_data.get("prices", [])
@@ -612,7 +561,6 @@ def main():
             "label": rate_data.get("label", "PROXY")
         },
         "news": news,
-        "twitter": twitter,
         "volatility": vol,
         "sentiment_dist": sentiment_dist
     }
