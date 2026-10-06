@@ -1,7 +1,7 @@
 # 📡 USD/IDR Pre-Market Intelligence Radar
 
 Dashboard harian USD/IDR otomatis — dijalankan setiap hari kerja **08:00 WIB** via **GitHub Actions**, 
-digenerate oleh **GLM-4.7 (Z.AI)**, dipublikasikan ke **GitHub Pages**, dan dikirim ke **Telegram**.
+digenerate oleh **Gemini (Google AI)**, dan dipublikasikan ke **GitHub Pages**.
 
 ---
 
@@ -15,12 +15,10 @@ usdidr-radar/
 ├── scripts/
 │   ├── check_market.py           ← Cek hari kerja / libur
 │   ├── fetch_data.py             ← Ambil data real (Frankfurter, BCA, BI, NewsAPI)
-│   ├── generate_report.py        ← Panggil GLM-4.7 → generate HTML
+│   ├── generate_report.py        ← Panggil Gemini → generate HTML
 │   └── deploy_pages.py           ← Update index GitHub Pages
-├── outputs/                      ← HTML report tersimpan di sini
-├── docs/                         ← GitHub Pages (publik)
+├── docs/                         ← HTML report + GitHub Pages (publik)
 ├── data/                         ← Data intermediary (auto-generated)
-├── MASTER_PROMPT_USDIDR.json     ← Master prompt reference
 ├── requirements.txt
 └── README.md
 ```
@@ -40,11 +38,11 @@ cd usdidr-radar
 
 | Service | Cara Dapat | Gratis? |
 |---------|-----------|---------|
-| **Z.AI GLM-4.7** | Daftar di [platform.z.ai](https://platform.z.ai) → API Keys | Ada free tier |
-| **Telegram Bot** | Chat `@BotFather` di Telegram → `/newbot` | ✅ Gratis |
+| **Gemini** | Daftar di [aistudio.google.com](https://aistudio.google.com/apikey) → Get API key | Ada free tier |
+| **Tavily** | Daftar di [tavily.com](https://tavily.com) | ✅ Ada free tier |
 | **NewsAPI** | Daftar di [newsapi.org](https://newsapi.org) | ✅ 100 req/day gratis |
 
-> **NewsAPI opsional** — jika tidak ada, berita diambil via scraping (label PROXY).
+> **NewsAPI & Tavily opsional** — tanpa NewsAPI berita diambil via scraping; tanpa Tavily kurs BCA pakai sumber cadangan (label PROXY).
 
 ### Langkah 3 — Set GitHub Secrets
 
@@ -52,8 +50,9 @@ Di repo GitHub: **Settings → Secrets and variables → Actions → New reposit
 
 | Secret Name | Value |
 |-------------|-------|
-| `ZAI_API_KEY` | API key dari platform.z.ai |
-| `PAGES_URL` | URL GitHub Pages kamu (contoh: `https://username.github.io/usdidr-radar`) |
+| `GEMINI_API_KEY` | API key dari Google AI Studio (wajib) |
+| `NEWS_API_KEY` | API key NewsAPI (opsional) |
+| `TAVILY_API_KEY` | API key Tavily (opsional) |
 
 ### Langkah 4 — Aktifkan GitHub Pages
 
@@ -80,13 +79,7 @@ Cron: 0 1 * * 1-5
 
 Otomatis **skip** pada:
 - Weekend (Sabtu–Minggu)
-- Libur nasional Indonesia (sudah di-hardcode di `check_market.py`)
-- US Federal holidays
-
-Kirim pesan Telegram skip seperti:
-```
-⏭ Pre-Market Radar skip — Weekend (Sabtu 2026-03-07). Next run: Senin 2026-03-09.
-```
+- Libur nasional Indonesia & US Federal holidays (di-hardcode di `check_market.py`)
 
 ---
 
@@ -96,12 +89,11 @@ Kirim pesan Telegram skip seperti:
 |------|--------|-------|-------|
 | Spot USD/IDR | [Frankfurter.app](https://api.frankfurter.app) | ✅ | LIVE |
 | Historical 30D | [Frankfurter.app](https://api.frankfurter.app) | ✅ | LIVE |
-| BCA E-Rate | Scraping bca.co.id | ✅ | LIVE/PROXY |
-| BI JISDOR | Scraping bi.go.id | ✅ | LIVE/PROXY |
+| BCA E-Rate | bca.co.id via Tavily (fallback: currency-api / open.er-api) | ✅ | LIVE/PROXY |
+| BI JISDOR | Webservice bi.go.id | ✅ | LIVE/PROXY |
 | DXY Index | Yahoo Finance (yfinance) | ✅ | LIVE |
 | BI Rate | NewsAPI / fallback | ✅ | LIVE/STALE |
-| Berita 24H | NewsAPI.org | ✅ free tier | LIVE/PROXY |
-| Twitter Sentiment | Proxy dari berita | ✅ | ⚡ PROXY |
+| Berita 24H | NewsAPI.org (fallback: scraping CNBC/Bisnis/Kontan) | ✅ free tier | LIVE/PROXY |
 | Implied Volatility | ATR 14D proxy | ✅ | ⚡ PROXY |
 
 > Label **⚡ PROXY** = estimasi, bukan data langsung  
@@ -110,22 +102,17 @@ Kirim pesan Telegram skip seperti:
 
 ---
 
-## 🤖 GLM-4.7 API
+## 🤖 Gemini API
 
-Endpoint: `https://api.z.ai/api/paas/v4/chat/completions`  
-Model: `glm-4.7`  
-Context window: 200K tokens  
-Thinking mode: enabled (lebih akurat untuk task kompleks)
+Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`  
+Model: `gemini-3-flash-preview`  
+Auth: header `x-goog-api-key` (key tidak pernah masuk URL/log)
 
 ---
 
 ## 🛑 Stop Condition
 
-Kirim pesan ke bot Telegram atau edit workflow:
-```
-STOP PRE-MARKET RADAR
-```
-Atau nonaktifkan workflow di **Actions → disable workflow**.
+Nonaktifkan workflow di **Actions → disable workflow**.
 
 ---
 
@@ -146,9 +133,9 @@ Atau nonaktifkan workflow di **Actions → disable workflow**.
 **Ganti model:**
 ```python
 # scripts/generate_report.py
-MODEL = "glm-4.7"  # ← bisa diganti glm-5, dll.
+MODEL = "gemini-3-flash-preview"  # ← bisa diganti model Gemini lain
 ```
 
 ---
 
-*Powered by Z.AI GLM-4.7 · GitHub Actions · Frankfurter API · NewsAPI*
+*Powered by Gemini · GitHub Actions · Frankfurter API · NewsAPI*

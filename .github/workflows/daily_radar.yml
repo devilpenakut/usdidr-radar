@@ -50,7 +50,7 @@ jobs:
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           DATE_OVERRIDE: ${{ github.event.inputs.date_override }}
 
-      - name: 🤖 Generate HTML report via GLM-4.7
+      - name: 🤖 Generate HTML report via Gemini
         if: steps.market_check.outputs.market_open == 'true'
         run: python scripts/generate_report.py
         env:
